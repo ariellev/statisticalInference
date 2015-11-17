@@ -1,0 +1,77 @@
+---
+title: "Statistical Inference: Exponential Distribution"
+author: Ariel Lev
+date: "26. April 2015"
+output: 
+  html_document:
+    keep_md: true
+---
+#### Overview
+In this report I would like to emperically show the properties of the Central Limit Theorem given samples of exponential distrubted iid variables. 
+I will show that the estimates of the mean and variance converge respectively to the population's mean and variance, and that the distribution of the sample converge to a normal distribution. 
+
+#### Simulations
+```{r,echo=T, cache=T}
+# number of exponentials in each simulation
+n <- 40
+# number of simulations
+nsim <- 1000
+# lambda
+lambda <- 0.2
+
+# mean and variance vectors
+mns = NULL
+vars = NULL
+
+# theoretical mean and variance
+data <- rexp(n*nsim, lambda)
+data.frame( mean = mean(data), var = var(data))
+
+## simulation begins
+for (i in 1:nsim) {
+  r_expos <- rexp(n, lambda)
+  mns <- c(mns,mean(r_expos))
+  vars <- c(vars, var(r_expos))
+  }
+```
+
+
+#### Sample Mean vs. Theoretical Mean
+```{r,echo=F, cache=T, message=F, warning=F}
+require(ggplot2)
+```
+```{r,echo=T, cache=T, message=F, warning=F, fig.width=12, fig.height=6}
+expo_df <-data.frame( value = data, type = "Theoretical")
+mns_df <-data.frame( value = mns, type = "Sample")
+plot_df <- rbind(expo_df, mns_df)
+
+data.frame( mean = c(mean(data), mean(mns)), row.names = c("theoretical", "sample"))
+
+ggplot(as.data.frame(plot_df$value),aes(x=plot_df$value)) + geom_density(aes(fill=plot_df$type, alpha = 1)) + geom_vline(xintercept = mean(expo_df$value), color = "red", size = 1) + geom_vline(xintercept = mean(mns_df$value), linetype = "longdash", color = "blue", size = 0.5) + scale_x_continuous(breaks = sort(seq(0,20,5))) + ggtitle(label = "Sample Mean vs. Theoretical Mean") + theme(axis.title.x=element_blank()) + guides(fill=guide_legend(title="Type")) + xlim(0,20)
+```
+
+#### Sample Variance vs. Theoretical Variance
+```{r,echo=T, cache=T, message=F, fig.width=12, fig.height=6}
+expo_df <-data.frame( value = data, type = "Theoretical")
+mns_df <-data.frame( value = mns, type = "Sample")
+plot_df <- rbind(expo_df, mns_df)
+
+# theoretical variance and mean of sample variance
+data.frame( var = c(var(data), mean(vars)), row.names = c("theoretical", "sample"))
+
+# theoretical variance of samples 
+var(data)/(n-1)
+
+# empirical variance of samples 
+var(mns)
+
+```
+#### Distribution
+```{r,echo=T, cache=T, message=F, fig.width=12, fig.height=6}
+
+normal_df <-data.frame( value = rnorm(nsim, mean = mean(mns), sd = sd(mns)), type = "Normal")
+mns_df <-data.frame( value = mns, type = "Sample")
+plot_df <- rbind(normal_df, mns_df)
+
+ggplot(as.data.frame(plot_df$value),aes(x=plot_df$value)) + geom_density(aes(fill=plot_df$type, alpha = 1)) + geom_vline(xintercept = mean(normal_df$value), color = "red", size = 1) + geom_vline(xintercept = mean(mns_df$value), linetype = "longdash", color = "blue", size = 0.5) + scale_x_continuous(breaks = sort(seq(0,20,5))) + ggtitle(label = "Sample vs. Normal Distribution") + theme(axis.title.x=element_blank()) + guides(fill=guide_legend(title="Type")) + xlim(0,20)
+```

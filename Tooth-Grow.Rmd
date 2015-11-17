@@ -1,0 +1,87 @@
+---
+title: 'Statistical Inference: Tooth Grow'
+author: "Ariel Lev"
+date: "26. April 2015"
+output: 
+  html_document:
+    keep_md: true
+---
+#### Basic summary and exploratory analysis
+```{r, echo=F, fig.width=12, fig.height=4, message=F}
+require(ggplot2)
+require(datasets)
+require(dplyr)
+```
+
+```{r, echo=T, fig.width=12, fig.height=4, message=F}
+data(ToothGrowth)
+```
+
+```{r, echo=F, fig.width=12, fig.height=4, message=F}
+#str(ToothGrowth)
+
+m <- mean(ToothGrowth$len)
+#var(ToothGrowth$len)
+
+ggplot(as.data.frame(ToothGrowth$len),aes(x=ToothGrowth$len))  + geom_histogram(aes(y=..density..), binwidth = 1, fill="white", color="black") + geom_density(fill=NA) + xlab("len") + geom_vline(xintercept = m, linetype = "longdash", color = "blue", size = 0.5) + ggtitle(label = "ToothGrowth: Distribution and Mean")
+```
+We can see that the population is continuous, fairly distributed in a mound shape, unskewed, and that the number of observations is relatively small.
+That satisfies the basic prerequisites for using t tests. Because the observations are subject independent, so we cannot directly say which observation refers to which subject, unpaired test will be conducted. Because the data was collected from the same exact population, equal variance are assumed. The tests will be performed with a confidence interval of 95%.
+
+To gather a bit more intution, lets explore the dependency of the variables.
+```{r, echo=F, fig.width=12, fig.height=4}
+# Regression analysis
+ggplot(ToothGrowth, aes(len, dose)) + geom_point(aes(colour = supp), size=2) + geom_smooth(method=lm)
+```
+Intuitively, it seems like **dose level** and **thooth length** are positively correlated. Lets see what the tests have to say regrading that assumption.
+
+#### What is the difference in tooth length by supplement, holding the dose constant?
+Let us check the null hypothesis, stating there is no significant difference between the two methods (orange juice or ascorbic acid), vs the alternative hypothesis, stating that there is such.
+```{r, echo=T, fig.width=12, fig.height=4}
+# splitting across dose level
+dose_split = split(ToothGrowth, ToothGrowth$dose)
+
+# performing tests
+# extracting t-statistic and p values out 
+p_values <- sapply(dose_split, function(x) { round(t.test(len ~ supp, paired = F, var.equal = T, data = x)$p.value, 4)})
+p_values
+```
+From the results of the p-values above we can conclude, that **it is only for dose level 2.0 that we fail to reject the null hypothesis**, i.e the supplement method indeed yields **significantly longer teeth for dose level 0.5 or 1**.
+
+Finally, we can confirm the results of the p-values by summarizing the sample means, and by taking a look of how the population is distributed among the different dose level.
+```{r, echo=F, message= F, fig.width=12, fig.height=4}
+# summarize samples' means
+ToothGrowth %>% group_by(dose, supp) %>% summarize(mean(len))
+ggplot(ToothGrowth,aes(x=len)) + geom_density(aes(fill=supp, alpha = 1)) + facet_grid(. ~ dose) 
+```
+
+
+#### What is the difference in tooth length by dose, holding the supplement type constant?
+```{r, echo=T, message= F, fig.width=12, fig.height=4}
+# splitting across supplement methods 
+supp_split = split(ToothGrowth, ToothGrowth$supp)
+
+# all-pairs of possible dose combinations
+comb <- combn(c(0.5,1,2), 2)
+comb
+
+p_values <- sapply(supp_split, function(x) { 
+  tests = NULL
+  for (i in 1:ncol(comb)) {
+      y <- x[x$dose %in% comb[,i], ]
+      tests <- c(tests, round(t.test(len ~ dose, paired = F, var.equal = T, data = y)$p.value, 7))
+  }
+  tests
+  })
+
+row.names(p_values) <- c("[0.5, 1]", "[0.5, 2]", "[1, 2]")
+p_values
+```
+From the results of the p-values above we can conclude, that **the null hypothesis should be rejected for any dose level**, i.e there are significant differnces between subjects who received different amounts of vitamin C.
+Finally, we can confirm the results of the p-values by summarizing the sample means, and by taking a look of how the population is distributed among the different dose level.
+
+```{r, echo=F, message= F, fig.width=12, fig.height=4}
+# summarize samples' means
+ToothGrowth %>% group_by(supp, dose) %>% summarize(mean(len))
+ggplot(ToothGrowth,aes(x=len)) + geom_density(aes(fill=factor(dose), alpha = 1)) + facet_grid(. ~ supp) + guides(fill=guide_legend(title="Dose Level"))
+```
